@@ -1,0 +1,20 @@
+ChloroScript: Aiming for a completely disastrous user experience.
+-- Chlorie 2019
+
+
+Ver 0.1 target
+
+[ ] Primitive type of only int, maps to int32_t in C++
+[ ] Variable declaration, specify type after variable
+	BTW semicolons are cool
+	> i: int = 0;  // Declare i as int and set it to 0
+[ ] Use braces to distinguish blocks, not freaking indentation like freaking P****n
+	> { i = 0; }
+[ ] Function declaration, use keyword def
+	> def id(v: int): int { return v; }
+[ ] Entry point function, must return int, error if none exists
+	> def entry(): int { return 0; }
+
+
+Ver 0.0.1 target
+[-] Get a simple lexer running
