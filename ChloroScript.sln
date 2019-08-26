@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.29209.62
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChloroScript", "ChloroScript\ChloroScript.vcxproj", "{43C6EE76-D240-4EB9-8381-50FB50EAA699}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LALRParser", "LALRParser\LALRParser.vcxproj", "{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{43C6EE76-D240-4EB9-8381-50FB50EAA699}.Release|x64.Build.0 = Release|x64
 		{43C6EE76-D240-4EB9-8381-50FB50EAA699}.Release|x86.ActiveCfg = Release|Win32
 		{43C6EE76-D240-4EB9-8381-50FB50EAA699}.Release|x86.Build.0 = Release|Win32
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Debug|x64.ActiveCfg = Debug|x64
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Debug|x64.Build.0 = Debug|x64
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Debug|x86.ActiveCfg = Debug|Win32
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Debug|x86.Build.0 = Debug|Win32
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Release|x64.ActiveCfg = Release|x64
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Release|x64.Build.0 = Release|x64
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Release|x86.ActiveCfg = Release|Win32
+		{CC23DA3B-B23A-4AE6-840D-3C69CB3DF5FF}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

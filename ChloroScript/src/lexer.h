@@ -15,8 +15,7 @@ namespace cls::lex
     enum class Symbol : uint8_t
     {
         equal,
-        semicolon,
-        colon,
+        semicolon, colon, comma,
         left_paren, right_paren,
         left_brace, right_brace,
         max_value
@@ -44,7 +43,8 @@ namespace cls::lex
     {
         std::variant<
             Symbol, Keyword, Identifier, Integer,
-            LexError
+            LexError,
+            std::monostate // End of stream token
         > content;
         Position position;
     };
@@ -59,6 +59,8 @@ namespace cls::lex
         char current() const { return script_[index_]; }
         bool is_end() const { return script_.length() <= index_; }
         void skip_whitespace();
+        void skip_single_line_comment();
+        void skip_multi_line_comment();
         void skip_enter();
         void match_identifier_or_keyword();
         void match_symbol();

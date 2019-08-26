@@ -11,5 +11,5 @@ namespace cls::utils
         explicit Overload(Ts&& ... vs) :Fs(std::forward<Ts>(vs))... {}
         using Fs::operator()...;
     };
-    template <typename... Fs> Overload(Fs&& ...)->Overload<std::remove_reference_t<Fs>...>;
+    template <typename... Fs> Overload(Fs...)->Overload<Fs...>;
 }

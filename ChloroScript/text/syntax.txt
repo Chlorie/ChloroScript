@@ -1,0 +1,23 @@
+ChloroScript: Aiming for a completely disastrous user experience.
+-- Chlorie 2019
+
+
+Program := DeclStmt*
+
+Stmt := VarDeclStmt | FuncDeclStmt
+
+DeclStmt := VarDeclStmt | FuncDeclStmt
+
+VarDeclStmt := identifier ":" TypeExpr "=" int_literal ";"
+
+FuncDeclStmt := "def" identifier "(" ParamList ")" ":" TypeExpr BlockStmt
+
+BlockStmt := "{" Stmt* "}"
+
+ParamList := identifier ":" TypeExpr ("," identifier ":" TypeExpr)*
+
+Expr := int_literal
+	  | identifier
+	  | TypeExpr
+
+TypeExpr := "int" | "void"

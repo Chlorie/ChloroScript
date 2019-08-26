@@ -18,23 +18,19 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\lexer.cpp">
+    <ClCompile Include="src\process_input.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\lexer.h">
+    <ClInclude Include="src\process_input.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\utils\static_char_set.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\utils\overload.h">
+    <ClInclude Include="src\static_char_set.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="text\TODO.txt" />
-    <Text Include="text\syntax.txt" />
+    <Text Include="grammar.txt" />
   </ItemGroup>
 </Project>

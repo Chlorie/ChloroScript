@@ -22,14 +22,14 @@ namespace cls::utils
         constexpr bool contains(const char ch) const { return data_[size_t(ch)]; }
         constexpr StaticCharSet& operator|=(const StaticCharSet& other)
         {
-            for (size_t i = 0; i < 256; i++)
-                data_[i] |= other.data_[i];
+            for (size_t i = 0; i < 256; i++) 
+                data_[i] = data_[i] || other.data_[i];
             return *this;
         }
         constexpr StaticCharSet& operator&=(const StaticCharSet& other)
         {
-            for (size_t i = 0; i < 256; i++)
-                data_[i] &= other.data_[i];
+            for (size_t i = 0; i < 256; i++) 
+                data_[i] = data_[i] && other.data_[i];
             return *this;
         }
         constexpr StaticCharSet operator|(StaticCharSet other) const { return other |= *this; }
