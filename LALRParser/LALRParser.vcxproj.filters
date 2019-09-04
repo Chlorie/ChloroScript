@@ -18,15 +18,27 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\process_input.cpp">
+    <ClCompile Include="src\grammar_parser.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\table_generator.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\process_input.h">
+    <ClInclude Include="src\static_char_set.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\static_char_set.h">
+    <ClInclude Include="src\types.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\functions.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\overload.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

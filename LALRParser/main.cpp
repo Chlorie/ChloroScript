@@ -1,10 +1,6 @@
 #include <fmt/format.h>
 #include <fstream>
-#include <vector>
-#include <string>
-#include <variant>
-#include "src/process_input.h"
-#include <iostream>
+#include "src/functions.h"
 
 namespace cls::lex
 {
@@ -264,12 +260,13 @@ int main(const int argc, const char** argv)
 
     try
     {
-        Grammar grammar = process_input(file);
+        const Grammar grammar = process_input(file);
+        auto table = generate_table(grammar);
         return 0;
     }
     catch (const std::runtime_error& e)
     {
-        std::cout << e.what() << '\n';
+        fmt::print("{}", e.what());
     }
 
     //Parser parser({
