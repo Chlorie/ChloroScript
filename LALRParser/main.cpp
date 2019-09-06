@@ -1,5 +1,6 @@
 #include <fmt/format.h>
 #include <fstream>
+#include <chrono>
 #include "src/functions.h"
 
 namespace cls::lex
@@ -244,9 +245,12 @@ namespace cls::lex
 
 int main(const int argc, const char** argv)
 {
+    using namespace std::literals;
     using namespace cls::lex;
     using namespace cls::lalr;
     //using namespace cls::parse;
+
+    using Clock = std::chrono::high_resolution_clock;
 
     if (argc != 2)
     {
@@ -260,8 +264,11 @@ int main(const int argc, const char** argv)
 
     try
     {
+        const auto start = Clock::now();
         const Grammar grammar = process_input(file);
         auto table = generate_table(grammar);
+        const auto us = (Clock::now() - start) / 1us;
+        fmt::print("Completed - Elapsed {}us\n", us);
         return 0;
     }
     catch (const std::runtime_error& e)

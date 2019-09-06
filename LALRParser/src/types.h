@@ -55,4 +55,16 @@ namespace cls::lalr
         std::vector<Action> actions;
         std::vector<size_t> go_to;
     };
+
+    struct TermIndex final
+    {
+        size_t index = 0;
+        bool is_terminal = true;
+        bool operator==(const TermIndex& other) const
+        {
+            return index == other.index
+                && is_terminal == other.is_terminal;
+        }
+        bool operator!=(const TermIndex& other) const { return !(*this == other); }
+    };
 }

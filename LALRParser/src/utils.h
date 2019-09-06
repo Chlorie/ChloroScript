@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fmt/format.h>
+#include <algorithm>
 
 namespace cls::utils
 {
@@ -8,6 +9,13 @@ namespace cls::utils
     [[noreturn]] void error(Ts&& ... args)
     {
         throw std::runtime_error(fmt::format(std::forward<Ts>(args)...));
+    }
+
+    template <typename T, typename V>
+    bool contains(const T& container, const V& value)
+    {
+        const auto iter = std::find(container.begin(), container.end(), value);
+        return iter != container.end();
     }
 
     // To circumvent the std::vector<bool> issue
