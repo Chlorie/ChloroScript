@@ -30,4 +30,29 @@ namespace cls::utils
         operator bool& () { return value_; }
         operator bool() const { return value_; }
     };
+
+    template <typename R>
+    auto enumerate(R&& range)
+    {
+        using Begin = decltype(std::forward<R>(range).begin());
+        struct EnumerateType final
+        {
+            struct Iterator final
+            {
+                size_t index = 0;
+                Begin iter;
+                auto operator*() const
+                {
+                    using Ref = decltype(*iter);
+                    return std::pair<size_t, Ref>(index, *iter);
+                }
+                Iterator& operator++() { index++; ++iter; return *this; }
+                bool operator!=(const Iterator& other) const { return iter != other.iter; }
+            };
+            R range;
+            Iterator begin() { return { 0, range.begin() }; }
+            Iterator end() { return { 0, range.end() }; }
+        };
+        return EnumerateType{ std::forward<R>(range) };
+    }
 }

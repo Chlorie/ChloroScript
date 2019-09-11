@@ -16,10 +16,10 @@ namespace cls::lalr
             // Indices should be sorted
             auto index_iter = indices.begin();
             auto empty_space = vector.begin();
-            for (size_t i = 0; i < vector.size(); i++)
+            for (const auto [i, elem] : enumerate(vector))
             {
                 if (index_iter == indices.end() || i != *index_iter)
-                    * empty_space++ = std::move(vector[i]);
+                    * empty_space++ = std::move(elem);
                 else
                     ++index_iter;
             }
@@ -171,8 +171,8 @@ namespace cls::lalr
                 finished[nt_index] = true;
                 traverse_stack.pop_back();
             };
-            for (size_t i = 0; i < rules_.size(); i++)
-                if (!finished[i])
+            for (const auto [i, v] : enumerate(finished))
+                if (!v)
                     recurse(recurse, i); // Recursively compute FIRST set of all non-terminals
         }
 
@@ -181,17 +181,18 @@ namespace cls::lalr
             eos_index_ = grammar.token_types.size();
             original_non_terminal_count_ = grammar.non_terminals.size();
             rules_.resize(original_non_terminal_count_);
-            for (const Rule& rule : grammar.rules)
-            {
-                auto& new_rule = rules_[rule.non_terminal_index].emplace_back();
-                std::transform(rule.terms.begin(), rule.terms.end(),
-                    std::back_inserter(new_rule),
-                    [](const Term& term) { return std::visit(Overload
-                        {
-                            [](const Terminal& t) { return TermIndex{ t.index, true }; },
-                            [](const NonTerminal& t) { return TermIndex{ t.index, false }; }
-                        }, term); });
-            }
+            for (const auto [index, rules] : enumerate(grammar.rules))
+                for (const Rule& rule : rules)
+                {
+                    auto& new_rule = rules_[index].emplace_back();
+                    std::transform(rule.terms.begin(), rule.terms.end(),
+                        std::back_inserter(new_rule),
+                        [](const Term& term) { return std::visit(Overload
+                            {
+                                [](const Terminal& t) { return TermIndex{ t.index, true }; },
+                                [](const NonTerminal& t) { return TermIndex{ t.index, false }; }
+                            }, term); });
+                }
         }
 
         auto SetGenerator::compute_first()

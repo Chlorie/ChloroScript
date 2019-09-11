@@ -21,7 +21,7 @@ namespace cls::lalr
             void extract_non_terminals();
             size_t get_non_terminal_index(std::string_view name) const;
             std::optional<Term> read_term();
-            std::optional<Rule> read_rule();
+            std::optional<std::pair<size_t, Rule>> read_rule();
             void process_token_type_list();
         public:
             explicit GrammarParser(const std::string_view text) :left_text_(text) {}
@@ -121,7 +121,7 @@ namespace cls::lalr
             error("Failed to find corresponding term type \"{}\"", type_name);
         }
 
-        std::optional<Rule> GrammarParser::read_rule()
+        std::optional<std::pair<size_t, Rule>> GrammarParser::read_rule()
         {
             const std::string_view first_symbol = next_symbol();
             if (first_symbol.empty()) return std::nullopt;
@@ -133,7 +133,7 @@ namespace cls::lalr
                         grammar_.non_terminals[non_terminal_index_]);
             }
             if (non_terminal_index_ == size_t(-1)) error("Missing the first alternative");
-            Rule rule{ non_terminal_index_, {}, {} };
+            Rule rule;
             const std::string_view restore_point = left_text_;
             if (next_symbol() == "[") // Type name for this alternative
             {
@@ -145,7 +145,7 @@ namespace cls::lalr
                 left_text_ = restore_point;
             while (auto term = read_term())
                 rule.terms.emplace_back(std::move(*term));
-            return rule;
+            return std::pair{ non_terminal_index_, rule };
         }
 
         void GrammarParser::process_token_type_list()
@@ -177,10 +177,11 @@ namespace cls::lalr
         {
             process_token_type_list();
             grammar_.non_terminals.emplace_back();
-            grammar_.rules.emplace_back(Rule{ 0, "", { NonTerminal{ 1 } } });
             extract_non_terminals();
-            while (auto rule = read_rule())
-                grammar_.rules.emplace_back(std::move(*rule));
+            grammar_.rules.resize(grammar_.non_terminals.size());
+            grammar_.rules[0].emplace_back(Rule{ "", { NonTerminal{ 1 } } });
+            while (auto rule_info = read_rule())
+                grammar_.rules[rule_info->first].emplace_back(std::move(rule_info->second));
             return std::move(grammar_);
         }
     }

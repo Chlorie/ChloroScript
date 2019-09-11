@@ -151,6 +151,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\code_generator.cpp" />
     <ClCompile Include="src\set_generator.cpp" />
     <ClCompile Include="src\table_generator.cpp" />
     <ClCompile Include="src\grammar_parser.cpp" />

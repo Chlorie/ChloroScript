@@ -30,7 +30,6 @@ namespace cls::lalr
 
     struct Rule final
     {
-        size_t non_terminal_index = size_t(-1);
         std::string type_name;
         std::vector<Term> terms;
     };
@@ -39,7 +38,7 @@ namespace cls::lalr
     {
         std::vector<TokenType> token_types;
         std::vector<std::string> non_terminals;
-        std::vector<Rule> rules;
+        std::vector<std::vector<Rule>> rules;
     };
 
     enum class ActionType : uint8_t { shift, reduce, accept, error };
@@ -52,6 +51,7 @@ namespace cls::lalr
 
     struct TableRow final
     {
+        static constexpr size_t no_goto = size_t(-1);
         std::vector<Action> actions;
         std::vector<size_t> go_to;
     };

@@ -27,6 +27,9 @@
     <ClCompile Include="src\set_generator.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\code_generator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\static_char_set.h">
