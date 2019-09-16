@@ -15,7 +15,7 @@ namespace cls::lalr
         private:
             std::string_view left_text_;
             Grammar grammar_;
-            size_t non_terminal_index_ = size_t(-1);
+            size_t non_terminal_index_ = max_size;
             std::string_view cut_prefix(size_t count);
             std::string_view next_symbol();
             void extract_non_terminals();
@@ -68,7 +68,7 @@ namespace cls::lalr
         {
             const auto iter = std::find_if(grammar_.non_terminals.begin(), grammar_.non_terminals.end(),
                 [name](const std::string& str) { return name == str; });
-            if (iter == grammar_.non_terminals.end()) return size_t(-1);
+            if (iter == grammar_.non_terminals.end()) return max_size;
             return size_t(iter - grammar_.non_terminals.begin());
         }
 
@@ -76,7 +76,8 @@ namespace cls::lalr
         {
             const std::string_view type_name = next_symbol();
             if (type_name == ";") return std::nullopt;
-            if (const size_t non_terminal = get_non_terminal_index(type_name); non_terminal != size_t(-1))
+            if (const size_t non_terminal = get_non_terminal_index(type_name);
+                non_terminal != max_size)
             {
                 std::string_view next = next_symbol();
                 NonTerminal result{ non_terminal, false, {} };
@@ -132,7 +133,7 @@ namespace cls::lalr
                     error("Non-terminal type name \"{}\" must be followed by colon",
                         grammar_.non_terminals[non_terminal_index_]);
             }
-            if (non_terminal_index_ == size_t(-1)) error("Missing the first alternative");
+            if (non_terminal_index_ == max_size) error("Missing the first alternative");
             Rule rule;
             const std::string_view restore_point = left_text_;
             if (next_symbol() == "[") // Type name for this alternative
@@ -171,6 +172,7 @@ namespace cls::lalr
                 if (next != "," || symbol.empty()) error("Token type list not finished");
                 grammar_.token_types.emplace_back(TokenType{ symbol, {} });
             }
+            grammar_.token_types.emplace_back(TokenType{ "$", {} });
         }
 
         Grammar GrammarParser::process()
@@ -179,7 +181,7 @@ namespace cls::lalr
             grammar_.non_terminals.emplace_back();
             extract_non_terminals();
             grammar_.rules.resize(grammar_.non_terminals.size());
-            grammar_.rules[0].emplace_back(Rule{ "", { NonTerminal{ 1 } } });
+            grammar_.rules[0].emplace_back(Rule{ "", { NonTerminal{ 1, false } } });
             while (auto rule_info = read_rule())
                 grammar_.rules[rule_info->first].emplace_back(std::move(rule_info->second));
             return std::move(grammar_);

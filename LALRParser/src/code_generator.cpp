@@ -75,28 +75,43 @@ namespace cls::lalr
             std::ofstream source_stream_; // Source stream
             const Grammar& grammar_;
             const std::vector<TableRow>& table_;
+            std::vector<std::vector<size_t>> rule_saved_term_count_;
+            bool is_enum(const Term& term) const;
             std::ofstream& stream() { return write_to_header_ ? header_stream_ : source_stream_; }
             void new_line(ptrdiff_t indent = 0);
             void open_brace(bool to_new_line = true);
             void close_brace(std::string_view extra = {});
+            template <typename... Ts>
+            void write(Ts&& ... vs)
+            {
+                fmt::format_to(std::ostreambuf_iterator(stream()), std::forward<Ts>(vs)...);
+            }
             std::vector<size_t> get_struct_define_sequence() const;
             void define_structs();
+            void declare_parser_class();
+            void define_parser_helpers();
+            std::string pop_term(const Term& term, size_t offset) const;
+            void define_reduce();
+            void define_go_to();
+            std::vector<size_t> get_token_indices() const;
+            void define_parse();
         public:
-            CodeGenerator(const std::string& file_path, const Grammar& grammar,
-                const std::vector<TableRow>& table) :
-                header_stream_(file_path + ".h"), source_stream_(file_path + ".cpp"),
-                grammar_(grammar), table_(table)
-            {
-                if (header_stream_.fail()) error("Failed to open text file {}", file_path);
-                if (source_stream_.fail()) error("Failed to open text file {}", file_path);
-            }
+            CodeGenerator(const std::string& directory, const Grammar& grammar,
+                const std::vector<TableRow>& table);
             void write_code();
         };
+
+        bool CodeGenerator::is_enum(const Term& term) const
+        {
+            if (const Terminal * t = std::get_if<Terminal>(&term))
+                return grammar_.token_types[t->index].enumerator.has_value();
+            return false;
+        }
 
         void CodeGenerator::new_line(const ptrdiff_t indent)
         {
             indent_ += indent;
-            if (!skip_new_line_) stream() << '\n' << std::string(indent_, ' ');
+            if (!skip_new_line_) write("\n{0:{1}}", "", indent_);
             skip_new_line_ = false;
         }
 
@@ -134,7 +149,7 @@ namespace cls::lalr
             for (const std::string& name : grammar_.non_terminals)
             {
                 if (name.empty()) continue;
-                stream() << "struct " << name << ';';
+                write("struct {};", name);
                 new_line();
             }
             new_line();
@@ -152,62 +167,65 @@ namespace cls::lalr
                                 skip_new_line_ = true;
                                 return;
                             }
-                            stream() << token.type_name << ' ' << t.variable_name << ';';
+                            write("{} {};", token.type_name, t.variable_name);
                         },
                         [this](const NonTerminal& t)
                         {
                             const std::string& type = grammar_.non_terminals[t.index];
-                            if (t.use_unique_ptr) header_stream_ << "std::unique_ptr<";
-                            stream() << type;
-                            if (t.use_unique_ptr) header_stream_ << '>';
-                            stream() << ' ' << t.variable_name << ';';
+                            if (t.use_unique_ptr)
+                                write("std::unique_ptr<{}>", type);
+                            else
+                                write(type);
+                            write(" {};",t.variable_name);
                         }
                     }, term);
             };
             for (const size_t i : define_sequence)
             {
                 if (i == 0) continue;
-                stream() << "struct " << grammar_.non_terminals[i] << " final";
+                write("struct {} final", grammar_.non_terminals[i]);
                 const auto& rules = grammar_.rules[i];
-                if (rules.size() == 1) // Only one production
+                const auto output_class_members = [&, this](const size_t index)
                 {
-                    if (rules[0].terms.size() == 1) // Only one term, output in one line
+                    const size_t count = rule_saved_term_count_[i][index];
+                    if (count == 0) // Empty class
+                    {
+                        stream() << " {};";
+                        new_line();
+                    }
+                    else if (count == 1) // Only one member
                     {
                         stream() << " { ";
-                        write_term(rules[0].terms[0]);
-                        stream() << " };";
-                        new_line();
+                        for (const auto& term : rules[index].terms)
+                            if (!is_enum(term))
+                            {
+                                write_term(term);
+                                break;
+                            }
+                        stream() << " };"; new_line();
                     }
                     else // Multiple terms, output in separate lines
                     {
-                        open_brace();
-                        for (const Term& term : rules[0].terms)
+                        open_brace(false);
+                        for (const Term& term : rules[index].terms)
                         {
+                            new_line();
                             write_term(term);
-                            stream() << '\n';
                         }
                         close_brace(";");
                     }
-                }
+                };
+                if (rules.size() == 1) // Only one production
+                    output_class_members(0);
                 else // Multiple productions, should use variant
                 {
-                    open_brace(false);
-                    for (const Rule& rule : rules)
+                    open_brace();
+                    for (const auto [j, rule] : enumerate(rules))
                     {
+                        if (rule.type_name.empty()) continue;
+                        write("struct {} final", rule.type_name);
+                        output_class_members(j);
                         new_line();
-                        if (rule.terms.empty()) // Epsilon production
-                            stream() << "struct " << rule.type_name << " final {};";
-                        else if (rule.terms.size() != 1) // Multiple terms
-                        {
-                            stream() << "struct " << rule.type_name << " final";
-                            open_brace(false);
-                            for (const Term& term : rule.terms)
-                            {
-                                new_line();
-                                write_term(term);
-                            }
-                            close_brace(";");
-                        }
                     }
                     stream() << "std::variant<";
                     for (const auto [j, rule] : enumerate(rules))
@@ -233,15 +251,288 @@ namespace cls::lalr
                     new_line();
                 }
             }
+            stream() << "using ASTNode = std::variant<";
+            for (const std::string& nt : grammar_.non_terminals)
+                if (!nt.empty())
+                    stream() << nt << ", ";
+            stream() << "lex::Token>;";
+            new_line();
+        }
+
+        void CodeGenerator::declare_parser_class()
+        {
+            stream() << R"code(
+    class Parser final
+    {
+    private:
+        std::vector<lex::Token> tokens_;
+        size_t input_position_ = 0;
+        std::vector<size_t> state_stack_{ 0 };
+        std::vector<ASTNode> node_stack_;
+
+        template <typename T>
+        T move_top(const size_t offset = 0) { return std::get<T>(std::move(*(node_stack_.end() - offset))); }
+
+        template <typename T>
+        T move_top_token(const size_t offset = 0) { return std::get<T>(move_top<lex::Token>(offset).content); }
+
+        template <typename T>
+        auto make_unique_from_top(const size_t offset = 0) { return std::make_unique<T>(move_top<T>(offset)); }
+
+        template <size_t N>
+        auto& current_token() { return std::get<N>(tokens_[input_position_].content); }
+
+        void error() const;
+        void pop_n(const size_t n)
+        size_t current_token_type() const;
+        size_t current_node_type() const;
+        void shift(const size_t new_state);
+        void reduce(const size_t rule);
+        void go_to();
+    public:
+        explicit Parser(std::vector<lex::Token>&& tokens) :tokens_(std::move(tokens)) {}
+        )code";
+            write("{} parse();\n    }};", grammar_.non_terminals[1]);
+        }
+
+        void CodeGenerator::define_parser_helpers()
+        {
+            stream() << R"code(
+    void Parser::pop_n(const size_t n)
+    {
+        node_stack_.erase(node_stack_.end() - n, node_stack_.end());
+        state_stack_.erase(state_stack_.end() - n, state_stack_.end());
+    }
+
+    void Parser::error() const
+    {
+        const auto [line, column] = tokens_[input_position_].position;
+        throw std::runtime_error(
+            fmt::format("Parsing error at line {}, column {}", line, column));
+    }
+
+    size_t Parser::current_token_type() const { return tokens_[input_position_].content.index(); }
+
+    size_t Parser::current_node_type() const { return node_stack_.back().index(); }
+
+    void Parser::shift(const size_t new_state)
+    {
+        node_stack_.emplace_back(std::move(tokens_[input_position_]));
+        state_stack_.emplace_back(new_state);
+        input_position_++;
+    }
+
+    )code";
+        }
+
+        std::string CodeGenerator::pop_term(const Term& term, const size_t offset) const
+        {
+            return std::visit(Overload
+                {
+                    [offset, this](const Terminal& t)
+                    {
+                        return fmt::format("move_top_token<{}>({})",
+                            grammar_.token_types[t.index].type_name, offset);
+                    },
+                    [offset, this](const NonTerminal& t)
+                    {
+                        return fmt::format("{}<{}>({})",
+                            t.use_unique_ptr ? "make_unique_from_top" : "move_top",
+                            grammar_.non_terminals[t.index], offset);
+                    }
+                }, term);
+        }
+
+        void CodeGenerator::define_reduce()
+        {
+            stream() << "void Parser::reduce(const size_t rule)";
+            open_brace();
+            stream() << "using namespace lex;"; new_line();
+            stream() << "switch (rule)";
+            open_brace();
+            size_t index = 1;
+            for (const auto [i, rules] : enumerate(grammar_.rules))
+            {
+                if (i == 0) continue;
+                const std::string& nt_name = grammar_.non_terminals[i];
+                for (const auto [j, rule] : enumerate(rules))
+                {
+                    write("case {}:", index);
+                    open_brace();
+                    const size_t out_term_count = rule_saved_term_count_[i][j];
+                    if (out_term_count == 0) // No terms to output
+                        write("node_stack_.emplace_back({}{{});", nt_name);
+                    else if (out_term_count == 1) // Only one term to output
+                        write("node_stack_.emplace_back({}{{ {} }});",
+                            nt_name,
+                            pop_term(*std::find_if(rule.terms.begin(), rule.terms.end(),
+                                [this](const Term& t) { return !is_enum(t); }), 0));
+                    else // Two or more terms to pop
+                    {
+                        write("node_stack_.emplace_back({}", nt_name);
+                        if (!rule.type_name.empty()) write("{{ {}::{}", nt_name, rule.type_name);
+                        open_brace(false);
+                        bool first = true;
+                        for (const auto [k, term] : enumerate(rule.terms))
+                        {
+                            if (is_enum(term)) continue;
+                            if (!first) stream() << ',';
+                            first = false;
+                            new_line();
+                            stream() << pop_term(term, rule.terms.size() - 1 - k);
+                        }
+                        close_brace(rule.type_name.empty() ? ");" : " });");
+                    }
+                    new_line();
+                    write("pop_n({}); break;", rule.terms.size());
+                    close_brace(); new_line();
+                    index++;
+                }
+            }
+            stream() << "default: error();";
+            close_brace(); new_line();
+            stream() << "go_to();";
+            close_brace();
+            new_line(); new_line();
+        }
+
+        void CodeGenerator::define_go_to()
+        {
+            stream() << "void Parser::go_to()";
+            open_brace();
+            stream() << "switch (state_stack_.back())";
+            open_brace();
+            for (const auto [i, row] : enumerate(table_))
+            {
+                if (std::all_of(row.go_to.begin(), row.go_to.end(),
+                    [](const size_t v) { return v == TableRow::no_goto; })) continue;
+                write("case {}: switch (current_node_type())", i);
+                open_brace();
+                for (const auto [j, v] : enumerate(row.go_to))
+                {
+                    if (v == TableRow::no_goto) continue;
+                    write("case {}: state_stack_.emplace_back({}); return;", j - 1, v);
+                    new_line();
+                }
+                stream() << "default: error();";
+                close_brace(); new_line();
+            }
+            stream() << "default: error();";
+            close_brace();
+            close_brace();
+            new_line(); new_line();
+        }
+
+        std::vector<size_t> CodeGenerator::get_token_indices() const
+        {
+            std::vector<size_t> result(grammar_.token_types.size());
+            bool no_update = false;
+            size_t index = 0;
+            for (const auto [i, type] : enumerate(grammar_.token_types))
+            {
+                result[i] = index = (no_update && type.enumerator) || i == 0 ? index : index + 1;
+                no_update = type.enumerator.has_value();
+            }
+            return result;
+        }
+
+        void CodeGenerator::define_parse()
+        {
+            const auto default_error = [this]()
+            {
+                stream() << "default: error();";
+                close_brace(); new_line();
+            };
+            const std::vector<size_t> token_indices = get_token_indices();
+            const std::string& return_type = grammar_.non_terminals[1];
+            write("{} Parser::parse()", return_type);
+            open_brace();
+            stream() << "using namespace lex;"; new_line();
+            stream() << "while (true)"; new_line(4);
+            stream() << "switch (state_stack_.back())";
+            open_brace();
+            for (const auto [i, row] : enumerate(table_))
+            {
+                write("case {}: switch (current_token_type())", i);
+                open_brace();
+                size_t prev_index = max_size;
+                for (const auto [j, action] : enumerate(row.actions))
+                {
+                    if (action.type == ActionType::error) continue;
+                    const TokenType& type = grammar_.token_types[j];
+                    const size_t index = token_indices[j];
+                    if (type.enumerator) // Enum
+                    {
+                        if (prev_index != index) // Write switch opening for the enum
+                        {
+                            if (prev_index != max_size) default_error();
+                            write("case {0}: switch (current_token<{0}>())", index);
+                            open_brace();
+                        }
+                        prev_index = index;
+                        write("case {}::{}: ", type.type_name, *type.enumerator);
+                    }
+                    else // Other tokens
+                    {
+                        if (prev_index != max_size) default_error();
+                        prev_index = max_size;
+                        write("case {}: ", token_indices[j]);
+                    }
+                    switch (action.type)
+                    {
+                        case ActionType::shift: write("shift({}); continue;", action.index); break;
+                        case ActionType::reduce: write("reduce({}); continue;", action.index); break;
+                        case ActionType::accept: write("return move_top<{}>();", return_type); break;
+                        default: error("Unknown action type");
+                    }
+                    new_line();
+                }
+                if (prev_index != max_size) default_error();
+                default_error();
+            }
+            stream() << "default: error();";
+            close_brace();
+            indent_ -= 4;
+            close_brace();
+        }
+
+        CodeGenerator::CodeGenerator(const std::string& directory, const Grammar& grammar,
+            const std::vector<TableRow>& table) :
+            header_stream_(directory + "parser.h"), source_stream_(directory + "parser.cpp"),
+            grammar_(grammar), table_(table)
+        {
+            if (header_stream_.fail()) error("Failed to open text file {}", directory);
+            if (source_stream_.fail()) error("Failed to open text file {}", directory);
+            for (const auto& rules : grammar_.rules)
+            {
+                auto& count = rule_saved_term_count_.emplace_back();
+                std::transform(rules.begin(), rules.end(), std::back_inserter(count),
+                    [this](const Rule& rule)
+                {
+                    return std::count_if(rule.terms.begin(), rule.terms.end(),
+                        [this](const Term& term) { return !is_enum(term); });
+                });
+            }
         }
 
         void CodeGenerator::write_code()
         {
-            stream() << "namespace cls::parse"; // Write to header file
+            stream() << "#include <memory>\n\nnamespace cls::parse"; // Write to header file
             open_brace();
             define_structs();
+            declare_parser_class();
             close_brace();
+            new_line();
+
             write_to_header_ = false; indent_ = 0; // Start writing into source file
+            stream() << "#include \"parser.h\"\n\nnamespace cls::parse";
+            open_brace(false);
+            define_parser_helpers();
+            define_reduce();
+            define_go_to();
+            define_parse();
+            close_brace();
+            new_line();
         }
     }
 

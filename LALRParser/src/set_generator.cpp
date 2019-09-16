@@ -29,7 +29,7 @@ namespace cls::lalr
         class SetGenerator final
         {
         private:
-            static constexpr size_t epsilon = size_t(-1);
+            static constexpr size_t epsilon = max_size;
             // rules_[i][j][k]: k-th term of j-th production of i-th non-terminal
             std::vector<std::vector<std::vector<TermIndex>>> rules_;
             size_t rule_count_ = 0;
@@ -178,7 +178,7 @@ namespace cls::lalr
 
         SetGenerator::SetGenerator(const Grammar& grammar)
         {
-            eos_index_ = grammar.token_types.size();
+            eos_index_ = grammar.token_types.size() - 1;
             original_non_terminal_count_ = grammar.non_terminals.size();
             rules_.resize(original_non_terminal_count_);
             for (const auto [index, rules] : enumerate(grammar.rules))

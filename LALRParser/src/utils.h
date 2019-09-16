@@ -55,4 +55,24 @@ namespace cls::utils
         };
         return EnumerateType{ std::forward<R>(range) };
     }
+
+    template <typename R>
+    auto reverse(R&& range)
+    {
+        using Begin = decltype(std::forward<R>(range).rbegin());
+        struct EnumerateType final
+        {
+            struct Iterator final
+            {
+                Begin iter;
+                decltype(auto) operator*() const { return *iter; }
+                Iterator& operator++() { ++iter; return *this; }
+                bool operator!=(const Iterator& other) const { return iter != other.iter; }
+            };
+            R range;
+            Iterator begin() { return { range.rbegin() }; }
+            Iterator end() { return { range.rend() }; }
+        };
+        return EnumerateType{ std::forward<R>(range) };
+    }
 }

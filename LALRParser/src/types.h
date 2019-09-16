@@ -7,6 +7,8 @@
 
 namespace cls::lalr
 {
+    constexpr size_t max_size = size_t(-1);
+
     struct TokenType final
     {
         std::string type_name;
@@ -15,13 +17,13 @@ namespace cls::lalr
 
     struct Terminal final
     {
-        size_t index = size_t(-1);
+        size_t index = max_size;
         std::string variable_name;
     };
 
     struct NonTerminal final
     {
-        size_t index = size_t(-1);
+        size_t index = max_size;
         bool use_unique_ptr = false;
         std::string variable_name;
     };
@@ -51,7 +53,7 @@ namespace cls::lalr
 
     struct TableRow final
     {
-        static constexpr size_t no_goto = size_t(-1);
+        static constexpr size_t no_goto = max_size;
         std::vector<Action> actions;
         std::vector<size_t> go_to;
     };

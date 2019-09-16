@@ -47,7 +47,12 @@ namespace cls::lalr
             size_t dot = 0;
             std::unordered_set<size_t> lookahead;
             // Check if two items are the same LR(0) item
-            bool lr0_equals(const Item& other) const { return rule == other.rule && dot == other.dot; }
+            bool lr0_equals(const Item& other) const
+            {
+                return non_terminal == other.non_terminal &&
+                    rule == other.rule &&
+                    dot == other.dot;
+            }
             // Insert current item into a item set, lookahead set may be moved away
             MergeResult merge_into(std::vector<Item>& item_set) &&
             {
@@ -78,10 +83,11 @@ namespace cls::lalr
         class TableGenerator final
         {
         private:
-            static constexpr size_t epsilon = size_t(-1);
+            static constexpr size_t epsilon = max_size;
             std::vector<std::vector<Item>> item_sets_;
             std::vector<std::vector<Transition>> transitions_;
             const Grammar& grammar_;
+            std::vector<size_t> rule_total_;
             std::vector<std::unordered_set<size_t>> first_;
             std::vector<TableRow> table_;
             std::string error_msg_;
@@ -96,7 +102,7 @@ namespace cls::lalr
             void fill_reduce();
             void fill_shift();
         public:
-            explicit TableGenerator(const Grammar& grammar) :grammar_(grammar) {}
+            explicit TableGenerator(const Grammar& grammar);
             std::vector<TableRow> generate_table();
         };
 
@@ -178,7 +184,7 @@ namespace cls::lalr
         void TableGenerator::compute_item_sets()
         {
             auto& first_item_set = item_sets_.emplace_back();
-            Item first_item{ 0, 0, 0,  { grammar_.token_types.size() } };
+            Item first_item{ 0, 0, 0,  { grammar_.token_types.size() - 1 } };
             first_item_set.emplace_back(std::move(first_item));
             apply_closure(first_item_set);
             transitions_.emplace_back();
@@ -232,7 +238,7 @@ namespace cls::lalr
             table_.resize(item_sets_.size());
             for (TableRow& row : table_)
             {
-                row.actions.resize(grammar_.token_types.size() + 1);
+                row.actions.resize(grammar_.token_types.size());
                 row.go_to = std::vector<size_t>(grammar_.non_terminals.size(), TableRow::no_goto);
             }
         }
@@ -242,7 +248,6 @@ namespace cls::lalr
             const auto [index, is_terminal] = term;
             if (is_terminal)
             {
-                if (index == grammar_.token_types.size()) return "$";
                 const TokenType& token_type = grammar_.token_types[index];
                 if (token_type.enumerator)
                     return fmt::format("{}.{}", token_type.type_name, *token_type.enumerator);
@@ -283,9 +288,9 @@ namespace cls::lalr
                     if (!is_reduce(item)) continue;
                     for (const size_t token : item.lookahead)
                     {
-                        const Action new_action = item.rule == 0 ?
+                        const Action new_action = item.non_terminal == 0 ?
                             Action{ ActionType::accept, 0 } :
-                            Action{ ActionType::reduce, item.rule };
+                            Action{ ActionType::reduce, item.rule + rule_total_[item.non_terminal] };
                         Action& action = table_[i].actions[token];
                         if (action.type != ActionType::error) // R-R conflict
                             error_msg_ += fmt::format("Reduce-reduce conflict in item set "
@@ -319,6 +324,14 @@ namespace cls::lalr
                         action = new_action;
                     }
                 }
+        }
+
+        TableGenerator::TableGenerator(const Grammar& grammar) :
+            grammar_(grammar)
+        {
+            std::exclusive_scan(grammar_.rules.begin(), grammar_.rules.end(),
+                std::back_inserter(rule_total_), 0,
+                [](const size_t lhs, const auto& rhs) { return lhs + rhs.size(); });
         }
 
         std::vector<TableRow> TableGenerator::generate_table()
