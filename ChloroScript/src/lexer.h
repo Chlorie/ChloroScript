@@ -23,7 +23,7 @@ namespace cls::lex
 
     enum class Keyword : uint8_t
     {
-        int_,
+        void_, int_,
         def, return_,
         max_value
     };

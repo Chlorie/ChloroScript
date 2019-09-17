@@ -1,25 +1,26 @@
 #include <fmt/format.h>
 #include "src/lexer.h"
-#include "src/utils/overload.h"
+#include "src/parser.h"
 
 int main()  // NOLINT
 {
-    using namespace cls::lex;
-    Lexer lexer(R"(
-def entry(): int
+    auto tokens = cls::lex::Lexer(R"script(
+
+global_var: int = 0;
+def func(arg: int): int
 {
-    i: int = 1;  // Comment
-    { i = 0; }
-    return i;
-})");
-    for (auto&& token : lexer.lex())
-        std::visit(cls::utils::Overload
-            {
-                [](const Symbol value) { fmt::print("Symbol: {}\n", size_t(value)); },
-                [](const Keyword value) { fmt::print("Keyword: {}\n", size_t(value)); },
-                [](const Identifier& value) { fmt::print("Identifier: {}\n", value.name); },
-                [](const Integer value) { fmt::print("Integer: {}\n", value.value); },
-                [](const LexError value) { fmt::print("LexError: {}\n", size_t(value)); }
-            }, token.content);
+    local_var: int = 1;
+}
+
+)script").lex();
+    try
+    {
+        auto ast = cls::parse::Parser(std::move(tokens)).parse();
+        return 0;
+    }
+    catch (const std::exception& e)
+    {
+        fmt::print("Exception: {}", e.what());
+    }
     return 0;
 }

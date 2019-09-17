@@ -13,7 +13,7 @@ namespace cls::lex
         using Strings = std::array<std::string_view, size_t(T::max_value)>;
 
         constexpr Strings<Symbol> symbols{ "=", ";", ":", ",", "(", ")", "{", "}" };
-        constexpr Strings<Keyword> keywords{ "int", "def", "return" };
+        constexpr Strings<Keyword> keywords{ "void", "int", "def", "return" };
 
         constexpr utils::StaticCharSet alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         constexpr utils::StaticCharSet digits = "0123456789";

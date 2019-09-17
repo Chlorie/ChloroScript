@@ -48,7 +48,4 @@
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
-  <ItemGroup>
-    <Text Include="grammar.txt" />
-  </ItemGroup>
 </Project>

@@ -1,6 +1,0 @@
-Symbol{plus}, Identifier, $
-
-Program: Expression(expr);
-Expression: [BinOp] Expression*(expr) Symbol.plus Term(term);
-          | Term(term);
-Term: Identifier(ident);

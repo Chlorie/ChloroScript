@@ -1,6 +1,8 @@
 ChloroScript: Aiming for a completely disastrous user experience.
 -- Chlorie 2019
 
+Ver 0.1.1 target
+[ ] Add operator precedence logic to the LALR parser
 
 Ver 0.1 target
 
@@ -15,6 +17,14 @@ Ver 0.1 target
 [ ] Entry point function, must return int, error if none exists
 	> def entry(): int { return 0; }
 
+Ver 0.0.4 target
+[ ] Add more grammar file syntax to get better syntax tree structures (avoid redundant allocations)
+
+Ver 0.0.3 target
+[ ] Implement IR and target virtual machine
+
+Ver 0.0.2 target
+[-] Get a simple LALR parser generator working
 
 Ver 0.0.1 target
 [-] Get a simple lexer running

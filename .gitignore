@@ -338,3 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/ChloroScript/src/parser.h
+/ChloroScript/src/parser.cpp

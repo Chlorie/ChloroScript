@@ -1,0 +1,48 @@
+Symbol
+{
+    equal,
+    semicolon, colon, comma,
+    left_paren, right_paren,
+    left_brace, right_brace
+},
+Keyword
+{
+    void_, int_,
+    def, return_
+}, 
+Identifier, Integer,
+LexError, $
+
+
+Program: DeclStmts(decls);
+
+Stmt: VarDeclStmt(stmt);
+    | FuncDeclStmt(stmt);
+    | BlockStmt(stmt);
+
+DeclStmt: VarDeclStmt(stmt);
+        | FuncDeclStmt(stmt);
+DeclStmts: [List] DeclStmts*(rest) DeclStmt(last);
+         | [Empty];
+
+VarDeclStmt: VarDeclExpr(var_decl) Symbol.equal Expr(expr) Symbol.semicolon;
+
+FuncDeclStmt: Keyword.def Identifier(ident) Symbol.left_paren ParamList(params) Symbol.right_paren Symbol.colon 
+                  TypeExpr(type) BlockStmt(block);
+
+BlockStmt: Symbol.left_brace Stmts*(stmts) Symbol.right_brace;
+Stmts: [List] Stmts*(rest) Stmt(last);
+     | [Empty];
+
+ParamList: [Decls] VarDeclExpr(first) VarDeclExprList(rest);
+         | [Empty];
+
+VarDeclExpr: Identifier(ident) Symbol.colon TypeExpr(type);
+VarDeclExprList: [List] VarDeclExprList*(rest) Symbol.comma VarDeclExpr(last);
+               | [Empty];
+
+Expr: Integer(int_literal);
+    | Identifier(ident);
+
+TypeExpr: Keyword.void_;
+        | Keyword.int_;

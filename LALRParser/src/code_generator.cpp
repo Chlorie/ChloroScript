@@ -34,8 +34,6 @@ namespace cls::lalr
                 dependencies_.resize(root + 1);
             }
             if (dependencies_[root].empty()) no_dependency_count_--;
-            if (no_dependency_count_ == 0)
-                error("Class dependency graph contains cycles");
             dependencies_[root].insert(dependency);
         }
 
@@ -52,6 +50,7 @@ namespace cls::lalr
             {
                 const size_t next(std::find(dependency_count.begin(),
                     dependency_count.end(), 0) - dependency_count.begin());
+                if (next == size) error("Class dependency graph contains cycles");
                 dependency_count[next]--; // Set to a really big value
                 result.emplace_back(next);
                 for (size_t i = 0; i < size; i++)
@@ -69,7 +68,6 @@ namespace cls::lalr
         {
         private:
             size_t indent_ = 0;
-            bool skip_new_line_ = false;
             bool write_to_header_ = true;
             std::ofstream header_stream_; // header stream
             std::ofstream source_stream_; // Source stream
@@ -111,8 +109,7 @@ namespace cls::lalr
         void CodeGenerator::new_line(const ptrdiff_t indent)
         {
             indent_ += indent;
-            if (!skip_new_line_) write("\n{0:{1}}", "", indent_);
-            skip_new_line_ = false;
+            write("\n{0:{1}}", "", indent_);
         }
 
         void CodeGenerator::open_brace(const bool to_new_line)
@@ -155,28 +152,26 @@ namespace cls::lalr
             new_line();
             // Define the structs
             const std::vector<size_t> define_sequence = get_struct_define_sequence();
-            const auto write_term = [this](const Term& term)
+            const auto write_term = [this](const Term& term, const bool begin_with_new_line = false)
             {
                 std::visit(Overload
                     {
-                        [this](const Terminal& t)
+                        [begin_with_new_line, this](const Terminal& t)
                         {
                             const TokenType& token = grammar_.token_types[t.index];
-                            if (token.enumerator) // Enum token
-                            {
-                                skip_new_line_ = true;
-                                return;
-                            }
-                            write("{} {};", token.type_name, t.variable_name);
+                            if (token.enumerator) return;
+                            if (begin_with_new_line) new_line();
+                            write("lex::{} {};", token.type_name, t.variable_name);
                         },
-                        [this](const NonTerminal& t)
+                        [begin_with_new_line, this](const NonTerminal& t)
                         {
                             const std::string& type = grammar_.non_terminals[t.index];
+                            if (begin_with_new_line) new_line();
                             if (t.use_unique_ptr)
                                 write("std::unique_ptr<{}>", type);
                             else
                                 write(type);
-                            write(" {};",t.variable_name);
+                            write(" {};", t.variable_name);
                         }
                     }, term);
             };
@@ -189,10 +184,7 @@ namespace cls::lalr
                 {
                     const size_t count = rule_saved_term_count_[i][index];
                     if (count == 0) // Empty class
-                    {
                         stream() << " {};";
-                        new_line();
-                    }
                     else if (count == 1) // Only one member
                     {
                         stream() << " { ";
@@ -202,18 +194,16 @@ namespace cls::lalr
                                 write_term(term);
                                 break;
                             }
-                        stream() << " };"; new_line();
+                        stream() << " };";
                     }
                     else // Multiple terms, output in separate lines
                     {
                         open_brace(false);
                         for (const Term& term : rules[index].terms)
-                        {
-                            new_line();
-                            write_term(term);
-                        }
+                            write_term(term, true);
                         close_brace(";");
                     }
+                    new_line();
                 };
                 if (rules.size() == 1) // Only one production
                     output_class_members(0);
@@ -225,7 +215,6 @@ namespace cls::lalr
                         if (rule.type_name.empty()) continue;
                         write("struct {} final", rule.type_name);
                         output_class_members(j);
-                        new_line();
                     }
                     stream() << "std::variant<";
                     for (const auto [j, rule] : enumerate(rules))
@@ -236,7 +225,7 @@ namespace cls::lalr
                                 {
                                     [this](const Terminal& t)
                                     {
-                                        stream() << grammar_.token_types[t.index].type_name;
+                                        write("lex::{}", grammar_.token_types[t.index].type_name);
                                     },
                                     [this](const NonTerminal& t)
                                     {
@@ -271,7 +260,7 @@ namespace cls::lalr
         std::vector<ASTNode> node_stack_;
 
         template <typename T>
-        T move_top(const size_t offset = 0) { return std::get<T>(std::move(*(node_stack_.end() - offset))); }
+        T move_top(const size_t offset = 0) { return std::get<T>(std::move(*(node_stack_.end() - offset - 1))); }
 
         template <typename T>
         T move_top_token(const size_t offset = 0) { return std::get<T>(move_top<lex::Token>(offset).content); }
@@ -283,11 +272,11 @@ namespace cls::lalr
         auto& current_token() { return std::get<N>(tokens_[input_position_].content); }
 
         void error() const;
-        void pop_n(const size_t n)
+        void pop_n(size_t n);
         size_t current_token_type() const;
         size_t current_node_type() const;
-        void shift(const size_t new_state);
-        void reduce(const size_t rule);
+        void shift(size_t new_state);
+        void reduce(size_t rule);
         void go_to();
     public:
         explicit Parser(std::vector<lex::Token>&& tokens) :tokens_(std::move(tokens)) {}
@@ -300,15 +289,14 @@ namespace cls::lalr
             stream() << R"code(
     void Parser::pop_n(const size_t n)
     {
-        node_stack_.erase(node_stack_.end() - n, node_stack_.end());
+        node_stack_.erase(node_stack_.end() - n - 1, node_stack_.end() - 1);
         state_stack_.erase(state_stack_.end() - n, state_stack_.end());
     }
 
     void Parser::error() const
     {
         const auto [line, column] = tokens_[input_position_].position;
-        throw std::runtime_error(
-            fmt::format("Parsing error at line {}, column {}", line, column));
+        throw std::runtime_error(fmt::format("Parsing error at line {}, column {}", line, column));
     }
 
     size_t Parser::current_token_type() const { return tokens_[input_position_].content.index(); }
@@ -361,12 +349,18 @@ namespace cls::lalr
                     open_brace();
                     const size_t out_term_count = rule_saved_term_count_[i][j];
                     if (out_term_count == 0) // No terms to output
-                        write("node_stack_.emplace_back({}{{});", nt_name);
+                    {
+                        write("node_stack_.emplace_back({}", nt_name);
+                        if (!rule.type_name.empty()) write("{{ {}::{}", nt_name, rule.type_name);
+                        write("{{}}{});", rule.type_name.empty() ? "" : " }");
+                    }
                     else if (out_term_count == 1) // Only one term to output
+                    {
+                        const auto iter = std::find_if(rule.terms.begin(), rule.terms.end(),
+                            [this](const Term& t) { return !is_enum(t); });
                         write("node_stack_.emplace_back({}{{ {} }});",
-                            nt_name,
-                            pop_term(*std::find_if(rule.terms.begin(), rule.terms.end(),
-                                [this](const Term& t) { return !is_enum(t); }), 0));
+                            nt_name, pop_term(*iter, rule.terms.end() - iter - 1));
+                    }
                     else // Two or more terms to pop
                     {
                         write("node_stack_.emplace_back({}", nt_name);
@@ -426,12 +420,19 @@ namespace cls::lalr
         std::vector<size_t> CodeGenerator::get_token_indices() const
         {
             std::vector<size_t> result(grammar_.token_types.size());
-            bool no_update = false;
-            size_t index = 0;
+            std::string enum_type;
+            size_t index = size_t(-1);
             for (const auto [i, type] : enumerate(grammar_.token_types))
             {
-                result[i] = index = (no_update && type.enumerator) || i == 0 ? index : index + 1;
-                no_update = type.enumerator.has_value();
+                if (enum_type.empty() || !type.enumerator || enum_type != type.type_name)
+                {
+                    if (type.enumerator)
+                        enum_type = type.type_name;
+                    else
+                        enum_type = "";
+                    index++;
+                }
+                result[i] = index;
             }
             return result;
         }
@@ -517,7 +518,12 @@ namespace cls::lalr
 
         void CodeGenerator::write_code()
         {
-            stream() << "#include <memory>\n\nnamespace cls::parse"; // Write to header file
+            stream() << R"(#pragma once
+
+#include <memory>
+#include "lexer.h"
+
+namespace cls::parse)"; // Write to header file
             open_brace();
             define_structs();
             declare_parser_class();
@@ -525,7 +531,11 @@ namespace cls::lalr
             new_line();
 
             write_to_header_ = false; indent_ = 0; // Start writing into source file
-            stream() << "#include \"parser.h\"\n\nnamespace cls::parse";
+            stream() << R"(#include "parser.h"
+#include <stdexcept>
+#include <fmt/format.h>
+
+namespace cls::parse)";
             open_brace(false);
             define_parser_helpers();
             define_reduce();

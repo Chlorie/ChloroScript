@@ -151,9 +151,11 @@ namespace cls::lalr
                     continue;
                 }
                 const size_t nt_index = std::get<NonTerminal>(rule.terms[item.dot]).index; // A -> B.C
-                std::unordered_set<size_t> lookahead = item.lookahead;
+                std::unordered_set<size_t> lookahead;
+                bool all_nullable = true;
                 for (size_t i = item.dot + 1; i < rule.terms.size(); i++)
                 {
+                    all_nullable = false;
                     const Term& term = rule.terms[i];
                     if (const Terminal * t = std::get_if<Terminal>(&term))
                     {
@@ -164,8 +166,13 @@ namespace cls::lalr
                     for (const size_t token : first_[nt.index])
                         if (token != epsilon)
                             lookahead.insert(token);
-                    if (!contains(first_[nt.index], epsilon)) break;
+                        else
+                            all_nullable = true;
+                    if (!all_nullable) break;
                 }
+                if (all_nullable)
+                    for (const size_t token : item.lookahead)
+                        lookahead.insert(token);
                 finished[index] = true;
                 for (const auto [i, r] : enumerate(grammar_.rules[nt_index]))
                 {
@@ -315,6 +322,7 @@ namespace cls::lalr
                         const size_t token = transition.term.index;
                         const Action new_action{ ActionType::shift, transition.dest_index };
                         Action& action = table_[i].actions[token];
+                        if (new_action == action) continue;
                         if (action.type != ActionType::error) // S-R conflict
                             error_msg_ += fmt::format("Shift-reduce conflict in item set "
                                 "I{}:\n{}when parsing token {}, conflicting actions are "

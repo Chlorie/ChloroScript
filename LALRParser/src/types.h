@@ -49,6 +49,12 @@ namespace cls::lalr
     {
         ActionType type = ActionType::error;
         size_t index = 0;
+        bool operator==(const Action& other) const
+        {
+            return type == other.type
+                && index == other.index;
+        }
+        bool operator!=(const Action& other) const { return !(*this == other); }
     };
 
     struct TableRow final
